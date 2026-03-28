@@ -1,0 +1,353 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.title {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-main);
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.saveBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.tabBtn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-main);
+}
+
+.tabActive {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-light);
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 600px;
+}
+
+.card h2 {
+  font-size: 1.25rem;
+  margin: 0;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.formGroup input[type="text"], 
+.formGroup textarea, 
+.formGroup select {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: inherit;
+}
+
+.testBtn {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-app);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  color: var(--text-main);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.testBtn:hover {
+  border-color: var(--text-muted);
+  background-color: var(--border-light);
+}
+
+/* Custom Toggle Switch */
+.toggleGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-app);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.toggleLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.toggleLabel strong {
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.toggleLabel span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+
+input:checked + .slider {
+  background-color: var(--color-success);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.mt4 {
+  margin-top: 1rem;
+}
+
+/* Receipt Designer */
+.receiptDesigner {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500 !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+}
+
+.radioLabel input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-primary);
+}
+
+.logoDropzone {
+  position: relative;
+  border: 2px dashed var(--border-color);
+  background-color: var(--bg-app);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.logoDropzone:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.logoDropzone input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.previewPane {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-light);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.thermalPaper {
+  background-color: white;
+  color: black;
+  width: 280px;
+  padding: 1.5rem;
+  border-top: 4px dashed #cbd5e1;
+  border-bottom: 4px dashed #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  font-family: monospace;
+  font-size: 0.825rem;
+  line-height: 1.4;
+  text-align: center;
+  position: relative;
+}
+
+.mockLogo {
+  max-width: 150px;
+  max-height: 60px;
+  object-fit: contain;
+  margin: 0 auto 0.5rem auto;
+  filter: grayscale(100%) contrast(200%); /* Simulates thermal print */
+}
+
+.mockName {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  text-transform: uppercase;
+}
+
+.mockAddress, .mockPhone, .mockNpwp {
+  margin: 0;
+}
+
+.mockDivider {
+  border-bottom: 1px dashed black;
+  margin: 0.75rem 0;
+}
+
+.mockRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.mockFooter {
+  margin: 0;
+  white-space: pre-wrap;
+}
