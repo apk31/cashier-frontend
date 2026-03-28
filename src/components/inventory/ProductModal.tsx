@@ -24,7 +24,7 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
   // Variant Fields (only used for Create or editing a single variant)
   const defaultVariant = productToEdit?.variants?.[0]; // Simplification: handle main variant
   const targetVariant = variantToEdit || defaultVariant;
-  
+
   const [sku, setSku] = useState(targetVariant?.sku || '');
   const [barcode, setBarcode] = useState(targetVariant?.barcode || '');
   const [variantName, setVariantName] = useState(targetVariant?.name || '');
@@ -62,13 +62,13 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
             await productsApi.updatePrice(targetVariant.id, price);
           }
           if (targetVariant.stock !== stock) {
-             // API expects delta (+ for restock, - for reduction)
-             const diff = stock - targetVariant.stock;
-             await productsApi.updateStock(targetVariant.id, { 
-               quantity: diff, 
-               base_price: diff > 0 ? basePrice : 0,
-               reason: 'ADJUSTMENT' 
-             });
+            // API expects delta (+ for restock, - for reduction)
+            const diff = stock - targetVariant.stock;
+            await productsApi.updateStock(targetVariant.id, {
+              quantity: diff,
+              base_price: diff > 0 ? basePrice : 0,
+              reason: 'ADJUSTMENT'
+            });
           }
         }
       }
@@ -96,11 +96,11 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
         <div className={styles.content}>
           <div className={styles.formGroup}>
             <label>Product Name</label>
-            <input 
-              type="text" 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
-              placeholder="e.g. Espresso" 
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Espresso"
               className={styles.input}
               required
             />
@@ -108,8 +108,8 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
 
           <div className={styles.formGroup}>
             <label>Category</label>
-            <select 
-              value={categoryId} 
+            <select
+              value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
               className={styles.input}
             >
@@ -121,87 +121,89 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
 
           <hr className={styles.divider} />
           <h3>Variant Details</h3>
-          
-          <div className={styles.row}>
+
+          <div className={styles.gridVariant}>
             <div className={styles.formGroup}>
-              <label>SKU</label>
-              <input 
-                type="text" 
-                value={sku} 
-                onChange={e => setSku(e.target.value)} 
-                disabled={isEdit} // SKU shouldn't be edited easily, or needs different API
-                placeholder="Product SKU" 
+              <label>SKU *</label>
+              <input
+                type="text"
+                value={sku}
+                onChange={e => setSku(e.target.value)}
+                disabled={isEdit}
+                placeholder="e.g. LATTE-01"
                 className={styles.input}
+                required
               />
             </div>
-            
+
             <div className={styles.formGroup}>
               <label>Barcode</label>
-              <input 
-                type="text" 
-                value={barcode} 
-                onChange={e => setBarcode(e.target.value)} 
+              <input
+                type="text"
+                value={barcode}
+                onChange={e => setBarcode(e.target.value)}
                 disabled={isEdit}
-                placeholder="Barcode" 
+                placeholder="Optional"
                 className={styles.input}
               />
             </div>
-          </div>
 
-          <div className={styles.formGroup}>
-            <label>Variant Name (Optional)</label>
-            <input 
-              type="text" 
-              value={variantName} 
-              onChange={e => setVariantName(e.target.value)} 
-              disabled={isEdit}
-              placeholder="e.g. Regular, Large" 
-              className={styles.input}
-            />
-          </div>
-
-          <div className={styles.row}>
             <div className={styles.formGroup}>
-              <label>Price (Rp)</label>
-              <input 
-                type="number" 
+              <label>Variant Name</label>
+              <input
+                type="text"
+                value={variantName}
+                onChange={e => setVariantName(e.target.value)}
+                disabled={isEdit}
+                placeholder="e.g. Regular"
+                className={styles.input}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Selling Price (Rp) *</label>
+              <input
+                type="number"
                 min="0"
-                value={price} 
-                onChange={e => setPrice(Number(e.target.value))} 
+                value={price}
+                onChange={e => setPrice(Number(e.target.value))}
                 className={styles.input}
                 disabled={hasOpenPrice}
+                required
               />
             </div>
-            
+
             <div className={styles.formGroup}>
               <label>Current Stock</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 min="0"
-                value={stock} 
-                onChange={e => setStock(Number(e.target.value))} 
+                value={stock}
+                onChange={e => setStock(Number(e.target.value))}
                 className={styles.input}
+                disabled={isEdit}
               />
             </div>
-            
+
+            {/* Show Base Price only when adding new stock */}
             {(stock > (targetVariant?.stock || 0) || !isEdit) && (
               <div className={styles.formGroup}>
                 <label>Base Cost (HPP) / Unit</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="0"
-                  value={basePrice} 
-                  onChange={e => setBasePrice(Number(e.target.value))} 
+                  value={basePrice}
+                  onChange={e => setBasePrice(Number(e.target.value))}
                   className={styles.input}
-                  placeholder="Purchase price per unit"
+                  placeholder="Purchase cost"
                 />
               </div>
             )}
           </div>
 
           <div className={styles.checkboxGroup}>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="openPrice"
               checked={hasOpenPrice}
               onChange={e => setHasOpenPrice(e.target.checked)}
@@ -215,8 +217,8 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
           <button className={styles.cancelBtn} onClick={onClose} disabled={saveMutation.isPending}>
             Cancel
           </button>
-          <button 
-            className={styles.saveBtn} 
+          <button
+            className={styles.saveBtn}
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || !name || !sku}
           >

@@ -24,6 +24,32 @@ export default function EStatementTab() {
   });
 
   const { ledger = [], summary } = data || {};
+  const handleExportCSV = () => {
+    if (!ledger || ledger.length === 0) return;
+
+    const headers = ['Date', 'Type', 'Reference ID', 'Description', 'Revenue (In)', 'COGS / Purchase Cost (Out)', 'Gross Profit'];
+
+    const rows = ledger.map((entry: any) => [
+      new Date(entry.date).toLocaleString('id-ID'),
+      entry.type,
+      entry.ref_id,
+      `"${entry.description}"`,
+      entry.debit,
+      entry.credit,
+      entry.profit !== null ? entry.profit : ''
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((e: any[]) => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `E-Statement_${fromDate}_to_${toDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className={styles.container}>
@@ -31,8 +57,8 @@ export default function EStatementTab() {
         <div className={styles.datePickerGroup}>
           <div className={styles.dateInputWrapper}>
             <Calendar size={16} className={styles.dateIcon} />
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className={styles.dateInput}
@@ -41,15 +67,15 @@ export default function EStatementTab() {
           <span className={styles.dateSep}>to</span>
           <div className={styles.dateInputWrapper}>
             <Calendar size={16} className={styles.dateIcon} />
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className={styles.dateInput}
             />
           </div>
         </div>
-        <button className={styles.exportBtn} onClick={() => alert('Exporting Ledger to CSV...')}>
+        <button className={styles.exportBtn} onClick={handleExportCSV}>
           <Download size={16} />
           Export Ledger
         </button>

@@ -38,25 +38,57 @@
   box-shadow: 0 0 0 2px var(--bg-surface);
 }
 
-.dropdown {
-  position: absolute;
-  top: 110%;
-  right: 0;
-  width: 320px;
+/* REPLACE .dropdown AND @keyframes slideDown WITH THIS: */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999; /* Must be very high to escape the header */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.modal {
+  width: 90%;
+  max-width: 650px;
   background-color: var(--bg-app);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
-  animation: slideDown 0.2s ease forwards;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.closeBtn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-main);
+}
 .header {
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);

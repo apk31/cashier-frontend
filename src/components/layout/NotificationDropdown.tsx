@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../lib/api';
-import { AlertCircle, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, RefreshCw, Trash2, CheckCircle2, X } from 'lucide-react';
 import styles from './NotificationDropdown.module.css';
 
 interface QueueItem {
@@ -71,45 +71,52 @@ export default function NotificationDropdown() {
       </button>
 
       {isOpen && (
-        <div className={styles.dropdown}>
-          <div className={styles.header}>
-            <h3>Sync Conflicts ({queue.length})</h3>
-          </div>
-          
-          <div className={styles.list}>
-            {queue.length === 0 ? (
-              <div className={styles.emptyState}>
-                <CheckCircle2 size={24} className={styles.successIcon} />
-                <p>All offline data synced securely.</p>
-              </div>
-            ) : (
-              queue.map((item) => (
-                <div key={item.id} className={styles.item}>
-                  <div className={styles.itemInfo}>
-                    <p className={styles.errorMessage}>{item.error || 'Unknown Error'}</p>
-                    <span className={styles.itemId}>Tx: {item.id.substring(0,8)}...</span>
-                  </div>
-                  <div className={styles.actions}>
-                    <button 
-                      onClick={() => handleRetry(item.id)}
-                      disabled={loading}
-                      title="Force Retry"
-                      className={styles.actionBtn}
-                    >
-                      <RefreshCw size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDiscard(item.id)}
-                      disabled={loading}
-                      title="Discard"
-                      className={`${styles.actionBtn} ${styles.dangerBtn}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+        <div className={styles.overlay} onClick={() => setIsOpen(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Danger Zone: Sync Conflicts ({queue.length})</h3>
+              <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>
+                <X size={20} /> {/* Make sure to import { X } from 'lucide-react' at the top */}
+              </button>
+            </div>
+            
+            <div className={styles.list} style={{ maxHeight: '60vh', padding: '1rem' }}>
+              {queue.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <CheckCircle2 size={32} className={styles.successIcon} />
+                  <p>All offline data synced securely.</p>
                 </div>
-              ))
-            )}
+              ) : (
+                queue.map((item) => (
+                  <div key={item.id} className={styles.item} style={{ borderRadius: '8px', marginBottom: '8px', padding: '1rem' }}>
+                    <div className={styles.itemInfo}>
+                      <span className={styles.itemId}>Transaction ID: {item.id}</span>
+                      <p className={styles.errorMessage} style={{ whiteSpace: 'normal', marginTop: '4px', fontSize: '0.9rem' }}>
+                        {item.error || 'Unknown Error'}
+                      </p>
+                    </div>
+                    <div className={styles.actions} style={{ alignSelf: 'flex-start' }}>
+                      <button 
+                        onClick={() => handleRetry(item.id)}
+                        disabled={loading}
+                        title="Force Retry"
+                        className={styles.actionBtn}
+                      >
+                        <RefreshCw size={16} /> <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>Retry</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDiscard(item.id)}
+                        disabled={loading}
+                        title="Discard"
+                        className={`${styles.actionBtn} ${styles.dangerBtn}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

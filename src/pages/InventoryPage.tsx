@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Download, Edit2, Trash2, UploadCloud, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Download, Edit2, Trash2, UploadCloud, AlertTriangle,Eye } from 'lucide-react';
 import styles from './InventoryPage.module.css';
 import { useI18nStore } from '../store/i18nStore';
 import BulkImportModal from '../components/inventory/BulkImportModal';
 import ProductModal from '../components/inventory/ProductModal';
+import ProductDetailModal from '../components/inventory/ProductDetailModal';
 import { productsApi, categoriesApi } from '../lib/api';
 import toast from 'react-hot-toast';
 import type { Product } from '../types';
@@ -13,6 +14,8 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [productToView, setProductToView] = useState<Product | undefined>(undefined);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | undefined>(undefined);
   const [variantToEdit, setVariantToEdit] = useState<any>(undefined);
@@ -84,6 +87,16 @@ export default function InventoryPage() {
   return (
     <div className={styles.page}>
       
+      {isDetailModalOpen && productToView && (
+        <ProductDetailModal 
+          product={productToView}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setProductToView(undefined);
+          }}
+        />
+      )}
+
       {isImportModalOpen && (
         <BulkImportModal 
           onClose={() => setIsImportModalOpen(false)} 
@@ -203,6 +216,18 @@ export default function InventoryPage() {
                       </span>
                     </td>
                     <td className={styles.actionsCell}>
+                      <button 
+                        className={styles.iconBtn} 
+                        title="View Details & FIFO Stock" 
+                        onClick={() => {
+                          // We pass the specific variant that was clicked into the first slot 
+                          // so the modal knows exactly which stock batches to show.
+                          setProductToView({ ...product, variants: [variant] });
+                          setIsDetailModalOpen(true);
+                        }}
+                      >
+                        <Eye size={16} />
+                      </button>
                       <button className={styles.iconBtn} title="Edit" disabled={!isOnline}
                         onClick={() => {
                           setProductToEdit(product);

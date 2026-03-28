@@ -71,6 +71,17 @@ export interface Variant {
   price: string;
   stock: number;
   has_open_price: boolean;
+
+  stock_batches?: StockBatch[];
+}
+
+export interface StockBatch {
+  id: string;
+  variant_id: string;
+  initial_qty: number;
+  remaining_qty: number;
+  base_price: string | number; // Decimal comes from Prisma as a string
+  created_at: string;
 }
 
 export interface Product {

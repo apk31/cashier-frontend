@@ -26,7 +26,7 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
   const processFile = (selectedFile: File) => {
     setFile(selectedFile);
     setError(null);
-    
+
     // Simple naive CSV preview parser
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -36,7 +36,7 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
         setError('File must contain a header row and data.');
         return;
       }
-      
+
       const headers = lines[0].split(',').map(h => h.trim());
       const parsedData = lines.slice(1).map(line => {
         const values = line.split(',');
@@ -53,11 +53,12 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
           sku: obj.sku,
           barcode: obj.barcode || '',
           price: Number(obj.price) || 0,
+          base_price: Number(obj.base_price) || 0, // <-- ADD THIS LINE
           stock: Number(obj.stock) || 0,
           has_open_price: obj.has_open_price?.toLowerCase() === 'true'
         } as BulkProductRow;
       });
-      
+
       setPreview(parsedData);
     };
     reader.readAsText(selectedFile);
@@ -66,7 +67,7 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
   const handleUpload = async () => {
     if (!file || preview.length === 0) return;
     setIsUploading(true);
-    
+
     try {
       const res = await productsApi.bulkApply(preview);
       toast.success(`Berhasil memproses! Created: ${res.created}, Updated: ${res.updated}`);
@@ -85,12 +86,12 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
 
   const handleDownloadTemplate = () => {
     const templateRows = [
-      "category_name,product_name,variant_name,sku,barcode,price,stock,has_open_price",
-      "Coffee,Espresso,Regular,ESP-101,,20000,100,false",
-      "Coffee,Seasonal Beans,100g,BEANS-100,,0,20,true",
-      "Pastry,Butter Croissant,,CRS-BUT,,25000,50,false"
+      "category_name,product_name,variant_name,sku,barcode,price,base_price,stock,has_open_price",
+      "Coffee,Espresso,Regular,ESP-101,,20000,8000,100,false",
+      "Coffee,Seasonal Beans,100g,BEANS-100,,0,15000,20,true",
+      "Pastry,Butter Croissant,,CRS-BUT,,25000,12000,50,false"
     ].join("\n");
-    
+
     const blob = new Blob([templateRows], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -122,14 +123,14 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
 
           {!file ? (
             <div className={styles.uploadStateContainer}>
-              <div 
+              <div
                 className={styles.dropzone}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className={styles.hiddenInput} 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className={styles.hiddenInput}
                   accept=".csv"
                   onChange={handleFileChange}
                 />
@@ -137,9 +138,9 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
                 <h3>Click or drag CSV file to upload</h3>
                 <p>Format must exactly match the standard template columns</p>
               </div>
-              
-              <button 
-                className={styles.templateBtn} 
+
+              <button
+                className={styles.templateBtn}
                 onClick={handleDownloadTemplate}
                 title="Download CSV reference template"
               >
@@ -188,8 +189,8 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
           <button className={styles.cancelBtn} onClick={onClose} disabled={isUploading}>
             Cancel
           </button>
-          <button 
-            className={styles.uploadBtn} 
+          <button
+            className={styles.uploadBtn}
             disabled={!file || isUploading}
             onClick={handleUpload}
           >
