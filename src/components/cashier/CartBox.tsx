@@ -7,29 +7,25 @@ import PaymentModal from './PaymentModal';
 import toast from 'react-hot-toast';
 
 export default function CartBox() {
-  const { 
-    items, removeItem, updateQuantity, clearCart, 
+  const {
+    items, removeItem, updateQuantity, clearCart,
     getSubtotal, getGrandTotal, getVoucherDiscount,
     voucher, voucherError, removeVoucher,
     memberInfo, setMember
   } = useCartStore();
-  
+
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [voucherInput, setVoucherInput] = useState('');
   const [memberInput, setMemberInput] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Network listener for offline banner/states
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => {
       setIsOnline(false);
-      // Removed auto-strip. Handled inside PaymentModal per First Guard architecture.
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -39,23 +35,22 @@ export default function CartBox() {
   const handleApplyVoucher = async () => {
     if (!voucherInput || !isOnline) return;
     try {
-      const voucher = await vouchersApi.byCode(voucherInput.trim());
-      // Validate expiry client-side too
-      if (new Date(voucher.exp) < new Date()) {
+      const voucherData = await vouchersApi.byCode(voucherInput.trim());
+      if (new Date(voucherData.exp) < new Date()) {
         toast.error('Voucher sudah kadaluarsa');
         return;
       }
-      if (voucher.used_count >= voucher.max_uses) {
+      if (voucherData.used_count >= voucherData.max_uses) {
         toast.error('Batas penggunaan voucher sudah habis');
         return;
       }
       useCartStore.getState().applyVoucherData({
-        code: voucher.code,
-        type: voucher.type,
-        value: parseFloat(voucher.value),
+        code: voucherData.code,
+        type: voucherData.type,
+        value: parseFloat(voucherData.value),
       });
       setVoucherInput('');
-      toast.success(`Voucher ${voucher.code} applied!`);
+      toast.success(`Voucher ${voucherData.code} applied!`);
     } catch {
       toast.error('Kode voucher tidak valid');
     }
@@ -63,12 +58,15 @@ export default function CartBox() {
 
   const handleApplyMember = async () => {
     if (!memberInput) return;
-    // Offline fallback: allow cashier to register member manually
+
+    // FIX: Don't set a fake offline member UUID.
+    // Sending id '00000000-0000-...' to the server causes 400 "Member not found".
+    // When offline, member lookup is simply not available.
     if (!isOnline) {
-      setMember({ id: '00000000-0000-0000-0000-000000000000', phone: memberInput, name: 'Offline Member' });
-      setMemberInput('');
+      toast.error('Member lookup tidak tersedia saat offline');
       return;
     }
+
     try {
       const member = await membersApi.byPhone(memberInput.trim());
       setMember({ id: member.id, phone: member.phone, name: member.name });
@@ -81,10 +79,9 @@ export default function CartBox() {
 
   const subtotal = getSubtotal();
   const voucherDiscount = getVoucherDiscount();
-  const grandTotal = getGrandTotal(); // Pre-tax grand total
-  
-  // Assume mock tax calculation based on backend (e.g. 11% PPN if PKP)
-  const pkpEnabled = false; 
+  const grandTotal = getGrandTotal();
+
+  const pkpEnabled = false;
   const tax = pkpEnabled ? grandTotal * 0.11 : 0;
   const finalTotalToPay = grandTotal + tax;
 
@@ -114,29 +111,29 @@ export default function CartBox() {
                   )}
                 </div>
               </div>
-              
+
               <div className={styles.itemActions}>
                 <div className={styles.quantityControl}>
-                  <button 
+                  <button
                     className={styles.qtyBtn}
                     onClick={() => updateQuantity(item.cart_item_id, Math.max(1, item.quantity - 1))}
                   >
                     <Minus size={14} />
                   </button>
                   <span className={styles.qtyValue}>{item.quantity}</span>
-                  <button 
+                  <button
                     className={styles.qtyBtn}
                     onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
                   >
                     <Plus size={14} />
                   </button>
                 </div>
-                
+
                 <div className={styles.itemTotal}>
                   Rp {((item.price * item.quantity) - item.discount).toLocaleString('id-ID')}
                 </div>
-                
-                <button 
+
+                <button
                   className={styles.deleteBtn}
                   onClick={() => removeItem(item.cart_item_id)}
                 >
@@ -163,14 +160,15 @@ export default function CartBox() {
               </div>
             ) : (
               <>
-                <input 
-                  type="text" 
-                  placeholder="Member Phone..." 
+                <input
+                  type="text"
+                  placeholder={isOnline ? 'Member Phone...' : 'Member lookup offline'}
                   value={memberInput}
                   onChange={(e) => setMemberInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleApplyMember()}
+                  disabled={!isOnline}
                 />
-                <button className={styles.applyBtn} onClick={handleApplyMember}>Add</button>
+                <button className={styles.applyBtn} onClick={handleApplyMember} disabled={!isOnline}>Add</button>
               </>
             )}
           </div>
@@ -189,16 +187,16 @@ export default function CartBox() {
               </div>
             ) : (
               <>
-                <input 
-                  type="text" 
-                  placeholder={isOnline ? "Voucher Code (PROMO20)..." : "Vouchers disabled offline"} 
+                <input
+                  type="text"
+                  placeholder={isOnline ? 'Voucher Code...' : 'Vouchers disabled offline'}
                   value={voucherInput}
                   onChange={(e) => setVoucherInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && isOnline && handleApplyVoucher()}
                   disabled={!isOnline}
                 />
-                <button 
-                  className={styles.applyBtn} 
+                <button
+                  className={styles.applyBtn}
                   onClick={handleApplyVoucher}
                   disabled={!isOnline}
                 >
@@ -217,7 +215,7 @@ export default function CartBox() {
           <span>Subtotal</span>
           <span>Rp {subtotal.toLocaleString('id-ID')}</span>
         </div>
-        
+
         {voucherDiscount > 0 && (
           <div className={`${styles.summaryRow} ${styles.discountRow}`}>
             <span>Discount ({voucher?.code})</span>
@@ -238,15 +236,15 @@ export default function CartBox() {
         </div>
 
         <div className={styles.actionButtons}>
-          <button 
-            className={styles.clearBtn} 
+          <button
+            className={styles.clearBtn}
             onClick={clearCart}
             disabled={items.length === 0}
           >
             <XCircle size={18} />
             Cancel
           </button>
-          <button 
+          <button
             className={styles.payBtn}
             onClick={() => setIsPaymentModalOpen(true)}
             disabled={items.length === 0}
@@ -258,9 +256,9 @@ export default function CartBox() {
       </div>
 
       {isPaymentModalOpen && (
-        <PaymentModal 
-          total={finalTotalToPay} 
-          onClose={() => setIsPaymentModalOpen(false)} 
+        <PaymentModal
+          total={finalTotalToPay}
+          onClose={() => setIsPaymentModalOpen(false)}
         />
       )}
     </div>

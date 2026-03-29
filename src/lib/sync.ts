@@ -1,35 +1,52 @@
-import { getDB } from './db';
+import type { QueryClient } from '@tanstack/react-query';
+import { getDB, getAllPendingTransactions, removePendingTransaction } from './db';
 import { apiFetch } from './api';
 
-export const syncOfflineTransactions = async () => {
-  // If no internet, abort silently
+/**
+ * Syncs all pending offline transactions to the server.
+ *
+ * @param queryClient  React Query client — all caches are invalidated after a
+ *                     successful sync so every page gets fresh data automatically.
+ * @param onClear      Callback to clear the in-memory offline store (avoids a
+ *                     circular import between sync.ts and the Zustand store).
+ */
+export const syncOfflineTransactions = async (
+  queryClient?: QueryClient,
+  onClear?: () => void,
+) => {
   if (!navigator.onLine) return;
 
   const db = await getDB();
   const pending = await db.getAll('pending_transactions');
 
-  if (pending.length === 0) return; // Nothing to sync
+  if (pending.length === 0) return;
 
-  // Extract exactly the payloads stored during checkout
   const transactions = pending.map(item => item.payload);
 
   try {
-    // Rely on centralized apiFetch error throwing and auth wrapping
     await apiFetch('/offline/sync', {
       method: 'POST',
-      body: JSON.stringify({ transactions })
+      body: JSON.stringify({ transactions }),
     });
 
-    // The backend safely received everything (queued failures for the Manager).
-    // Now we must clear the local DB!
-    const tx = db.transaction('pending_transactions', 'readwrite');
-    for (const item of pending) {
-      tx.store.delete(item.id);
+    // ── Clean up local DB ─────────────────────────────────────────────────────
+    // Remove each record individually so a partial failure doesn't wipe good records
+    await Promise.all(pending.map(item => removePendingTransaction(item.id)));
+
+    // ── Clear in-memory offline store ─────────────────────────────────────────
+    onClear?.();
+
+    console.log(`✅ ${pending.length} offline transaction(s) synced.`);
+
+    // ── Invalidate ALL React Query caches ────────────────────────────────────
+    // This is the key change: after sync every mounted query will refetch,
+    // giving the user up-to-date stock counts, transaction lists, and reports
+    // without a manual page refresh.
+    if (queryClient) {
+      await queryClient.invalidateQueries();
     }
-    await tx.done;
-    console.log(`✅ ${pending.length} Offline transactions synced successfully!`);
-    
+
   } catch (error) {
-    console.warn('⚠️ Sync failed/Backend rejected syncing. Will retry later.', error);
+    console.warn('⚠️ Sync failed. Will retry on next online event.', error);
   }
 };

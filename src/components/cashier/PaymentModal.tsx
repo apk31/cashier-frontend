@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCartStore } from '../../store/cartStore';
+import { useOfflineTransactionStore } from '../../store/offlineTransactionStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { X, CheckCircle, Receipt, PlusCircle, AlertTriangle, CloudOff } from 'lucide-react';
 import { transactionsApi } from '../../lib/api';
 import { saveOfflineTransaction } from '../../lib/db';
@@ -19,34 +21,34 @@ interface PaymentSplit {
 }
 
 export default function PaymentModal({ total, onClose }: PaymentModalProps) {
-  // Bug fix: Snapshot the total so clearing the cart doesn't zero out the modal!
   const [finalTotal] = useState(total);
-  
+
   const [payments, setPayments] = useState<PaymentSplit[]>([]);
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod>('CASH');
-  
+
   const totalPaidSoFar = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, finalTotal - totalPaidSoFar);
-  
+
   const [currentAmount, setCurrentAmount] = useState<number>(remaining);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isOfflineSaved, setIsOfflineSaved] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
   const [receiptString, setReceiptString] = useState<string | null>(null);
-  const { clearCart, voucher, items, memberInfo } = useCartStore();
+  const [successChange, setSuccessChange] = useState<number>(0);
 
-  // Reset current amount input when remaining changes
+  const { clearCart, voucher, items, memberInfo } = useCartStore();
+  const { addTransaction } = useOfflineTransactionStore();
+  const queryClient = useQueryClient();
+
   useEffect(() => {
     setCurrentAmount(remaining);
   }, [remaining]);
 
-  // Quick amounts (Current Remaining, then round up logically)
   const quickAmounts = [remaining];
   if (remaining < 50000 && remaining > 0) quickAmounts.push(50000);
   if (remaining < 100000 && remaining > 0) quickAmounts.push(100000);
-  
+
   const totalProvided = totalPaidSoFar + currentAmount;
   const change = totalProvided - finalTotal;
   const isCompleteDisabled = totalProvided < finalTotal || isProcessing;
@@ -57,37 +59,40 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
       return;
     }
     setPayments([...payments, { method: currentMethod, amount: currentAmount }]);
-    setCurrentMethod('QRIS'); // Default to next most common
+    setCurrentMethod('QRIS');
     setErrorMessage(null);
   };
 
   const handleComplete = async () => {
-    // FIRST GUARD: Offline check with Voucher
     if (!navigator.onLine && voucher) {
-      setErrorMessage("Offline mode active: Vouchers cannot be used. Please remove the voucher to proceed.");
+      setErrorMessage('Offline mode active: Vouchers cannot be used. Please remove the voucher to proceed.');
       return;
     }
 
     setIsProcessing(true);
     setErrorMessage(null);
-    
-    // Finalize payments array for receipt
+
     let finalPayments = [...payments];
     if (currentAmount > 0 && remaining > 0) {
       finalPayments.push({ method: currentMethod, amount: currentAmount });
     }
 
-    // Prepare API Payload
+    const isRealMember = memberInfo && memberInfo.id !== '00000000-0000-0000-0000-000000000000';
+
     const payload = {
       items: items.map(i => {
-        const payloadItem: any = { variant_id: i.variant_id, quantity: i.quantity, discount: i.discount };
+        const payloadItem: { variant_id: string; quantity: number; discount: number; price?: number } = {
+          variant_id: i.variant_id,
+          quantity: i.quantity,
+          discount: i.discount,
+        };
         if (i.has_open_price) payloadItem.price = i.price;
         return payloadItem;
       }),
       payments: finalPayments.map(p => ({ method: p.method, amount: p.amount })),
-      ...(memberInfo ? { member_id: memberInfo.id } : {}),
+      ...(isRealMember ? { member_id: memberInfo!.id } : {}),
       ...(voucher ? { voucher_code: voucher.code } : {}),
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
     try {
@@ -97,14 +102,36 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
       setIsOfflineSaved(false);
       setPayments(finalPayments);
       setReceiptString(result.receipt_string);
+      setSuccessChange(result.change);
       toast.success('Transaksi berhasil!');
       clearCart();
+
+      // ── Invalidate caches so stock counts + transaction list refresh instantly ──
+      // Without this the cashier would see stale stock numbers until the next
+      // automatic refetch cycle (30 s).
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-low-stock'] });
+
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
+      const axiosError = error as { response?: { data?: { error?: string } }; message?: string };
+      const msg = axiosError.response?.data?.error || axiosError.message || 'Unknown error';
       const isNetworkError = !navigator.onLine || msg.includes('Network Error') || msg.includes('failed to fetch');
 
       if (isNetworkError) {
-        await saveOfflineTransaction(payload);
+        const localId = await saveOfflineTransaction(payload);
+
+        // ── Push into the in-memory store so Reports/UI updates immediately ──────
+        // No page refresh needed — the offline summary in ReportsPage reads this store.
+        addTransaction({
+          id: localId,
+          created_at: Date.now(),
+          payload,
+        });
+
+        const totalAmountPaid = finalPayments.reduce((s, p) => s + p.amount, 0);
+        setSuccessChange(Math.max(0, totalAmountPaid - finalTotal));
         setIsProcessing(false);
         setIsSuccess(true);
         setIsOfflineSaved(true);
@@ -124,7 +151,7 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
         <div className={styles.successModal}>
           <CheckCircle size={64} className={styles.successIcon} />
           <h2>Payment Successful!</h2>
-          
+
           {isOfflineSaved && (
             <div className={styles.offlineBanner}>
               <CloudOff size={18} />
@@ -137,19 +164,16 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
               <span>Grand Total:</span>
               <span>Rp {finalTotal.toLocaleString('id-ID')}</span>
             </div>
-            
             <div className={styles.receiptDivider}></div>
-            
             {payments.map((p, i) => (
               <div key={i} className={styles.receiptRowSplit}>
                 <span>{p.method}:</span>
                 <span>Rp {p.amount.toLocaleString('id-ID')}</span>
               </div>
             ))}
-
             <div className={styles.receiptRowChange}>
               <span>Change:</span>
-              <span>Rp {change > 0 ? change.toLocaleString('id-ID') : '0'}</span>
+              <span>Rp {successChange > 0 ? successChange.toLocaleString('id-ID') : '0'}</span>
             </div>
           </div>
 
@@ -228,7 +252,7 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
                       className={`${styles.methodBtn} ${currentMethod === m ? styles.methodBtnActive : ''}`}
                       onClick={() => {
                         setCurrentMethod(m);
-                        if (m !== 'CASH') setCurrentAmount(remaining); 
+                        if (m !== 'CASH') setCurrentAmount(remaining);
                       }}
                     >
                       {m}
@@ -247,7 +271,7 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
                     </button>
                   )}
                 </div>
-                
+
                 <input
                   type="number"
                   className={styles.amountInput}
@@ -256,12 +280,12 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
                   min={currentMethod === 'CASH' ? 0 : remaining}
                   disabled={currentMethod !== 'CASH'}
                 />
-                
+
                 {currentMethod === 'CASH' && (
                   <div className={styles.quickAmounts}>
                     {quickAmounts.map((amt, idx) => (
-                      <button 
-                        key={idx} 
+                      <button
+                        key={idx}
                         className={styles.quickAmtBtn}
                         onClick={() => setCurrentAmount(amt)}
                       >
@@ -270,7 +294,7 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
                     ))}
                   </div>
                 )}
-                
+
                 {change >= 0 && currentAmount > 0 && payments.length === 0 && (
                   <div className={styles.changeDisplay}>
                     <span>Change:</span>
@@ -291,8 +315,8 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
           <button className={styles.cancelBtn} onClick={onClose} disabled={isProcessing}>
             Cancel
           </button>
-          <button 
-            className={styles.confirmBtn} 
+          <button
+            className={styles.confirmBtn}
             onClick={handleComplete}
             disabled={isCompleteDisabled}
           >

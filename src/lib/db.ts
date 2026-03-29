@@ -1,14 +1,15 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { uuidv7 } from 'uuidv7';
+import type { PendingTransaction } from '../store/offlineTransactionStore';
 
 // Define our local database schema
 interface POSDB extends DBSchema {
   pending_transactions: {
     key: string;
     value: {
-      id: string; // Local ID
-      payload: any; // The exact JSON body the backend expects
-      created_at: number; // Used for the 6-hour lockout check
+      id: string;
+      payload: any;
+      created_at: number; // Unix ms — used for 6-hour lockout check and date filtering
     };
   };
 }
@@ -28,14 +29,29 @@ export const getDB = () => {
   return dbPromise;
 };
 
-// Helper: Save a transaction locally when offline
-export const saveOfflineTransaction = async (payload: any) => {
+/** Save a transaction locally when offline. Returns the generated local ID. */
+export const saveOfflineTransaction = async (payload: any): Promise<string> => {
   const db = await getDB();
   const id = uuidv7();
-  await db.put('pending_transactions', {
+  const record = {
     id,
     payload,
     created_at: Date.now(),
-  });
+  };
+  await db.put('pending_transactions', record);
   return id;
+};
+
+/** Read ALL pending transactions from IndexedDB (for the offline store + sync). */
+export const getAllPendingTransactions = async (): Promise<PendingTransaction[]> => {
+  const db = await getDB();
+  const all = await db.getAll('pending_transactions');
+  // Sort newest first so the UI shows most recent activity at the top
+  return all.sort((a, b) => b.created_at - a.created_at) as PendingTransaction[];
+};
+
+/** Delete a single pending transaction by local ID (called after successful sync). */
+export const removePendingTransaction = async (id: string): Promise<void> => {
+  const db = await getDB();
+  await db.delete('pending_transactions', id);
 };

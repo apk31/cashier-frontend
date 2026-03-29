@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { syncOfflineTransactions } from './lib/sync';
 import { useAuthStore } from './store/authStore';
+import { useOfflineTransactionStore } from './store/offlineTransactionStore';
 
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
@@ -12,11 +13,22 @@ import InventoryPage from './pages/InventoryPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 
+// ─── Query Client ─────────────────────────────────────────────────────────────
+// Key changes vs the previous config:
+//   staleTime: 30_000   → data is considered fresh for 30 s, not 2 min.
+//                         Changing date filters or navigating between tabs now
+//                         triggers a refetch instead of serving stale cache.
+//   refetchOnWindowFocus: true  → coming back to the browser tab refreshes data.
+//   refetchOnReconnect: true    → reconnecting to the network triggers a refetch
+//                                 (this happens AFTER syncOfflineTransactions clears
+//                                  the local DB and invalidates all queries).
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 1000 * 60 * 2, // 2 minutes
+      staleTime: 30_000,          // 30 seconds — short enough to feel live
+      refetchOnWindowFocus: true,  // refresh when user switches back to the tab
+      refetchOnReconnect: true,    // refresh when network returns
     },
   },
 });
@@ -32,20 +44,31 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+// ─── App Content (inside QueryClientProvider so useQueryClient works) ─────────
 
 function AppContent() {
   const { isAuthenticated } = useAuthStore();
+  const qc = useQueryClient();
+  const { loadFromDB, clearAll } = useOfflineTransactionStore();
 
   useEffect(() => {
-    if (isAuthenticated) syncOfflineTransactions();
+    if (!isAuthenticated) return;
+
+    // Load any pending offline transactions into the in-memory store so the
+    // Reports page can show them immediately without waiting for a sync.
+    loadFromDB();
+
+    // Attempt an initial sync (no-op when offline)
+    syncOfflineTransactions(qc, clearAll);
 
     const handleOnline = () => {
-      if (isAuthenticated) syncOfflineTransactions();
+      // When the network returns, sync first, then React Query refetches everything
+      syncOfflineTransactions(qc, clearAll);
     };
+
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, qc, loadFromDB, clearAll]);
 
   return (
     <Routes>

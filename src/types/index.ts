@@ -214,12 +214,25 @@ export interface MonthlyReport {
   payment_breakdown: Array<{ method: string; _sum: { amount: string }; _count: { id: number } }>;
 }
 
+// ─── Low Stock ────────────────────────────────────────────────────────────────
+// FIX: These types now match the actual backend response from GET /api/reports/low-stock
+// Backend returns: { alert_threshold, total_alerts, items: LowStockItem[] }
+// NOT a bare array of LowStockItem
+
 export interface LowStockItem {
-  id: string;
+  variant_id: string;      // was: id (wrong field name)
+  product_name: string;    // was: product.name (wrong nesting)
+  category: string;        // was: missing
   sku: string;
-  name: string | null;
-  stock: number;
-  product: Pick<Product, 'id' | 'name'>;
+  variant_name: string | null;  // was: name
+  current_stock: number;   // was: stock (wrong field name)
+  price: string;           // Prisma Decimal comes as string
+}
+
+export interface LowStockResponse {
+  alert_threshold: number;
+  total_alerts: number;
+  items: LowStockItem[];
 }
 
 export interface EStatementEntry {

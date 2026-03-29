@@ -2,8 +2,8 @@ import axios from 'axios';
 import type {
   LoginResponse, AuthUser, Settings, Product, Variant, BulkProductRow,
   Paginated, Transaction, CreateTransactionPayload, CreateTransactionResponse,
-  Member, Voucher, ReportSummary, MonthlyReport, LowStockItem, User,
-  Category, OfflineQueueItem,
+  Member, Voucher, ReportSummary, MonthlyReport, LowStockResponse, User,
+  Category, OfflineQueueItem, EStatementReport,
 } from '../types';
 
 // ─── Axios instance ───────────────────────────────────────────────────────────
@@ -15,14 +15,12 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach token from localStorage on every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Global 401 handler — redirect to login
 api.interceptors.response.use(
   (res) => res,
   (error) => {
@@ -35,7 +33,6 @@ api.interceptors.response.use(
   }
 );
 
-// Legacy fetch wrapper (used by sync.ts)
 export const apiFetch = (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
   return fetch(`${BASE_URL}${endpoint}`, {
@@ -73,19 +70,36 @@ export const settingsApi = {
 export const productsApi = {
   list: (params?: { q?: string; category_id?: string; page?: number; limit?: number }) =>
     api.get<Paginated<Product>>('/products', { params }).then(r => r.data),
-  byBarcode: (code: string) => api.get<Variant & { product: Product }>(`/products/barcode/${code}`).then(r => r.data),
+
+  byBarcode: (code: string) =>
+    api.get<Variant & { product: Product }>(`/products/barcode/${code}`).then(r => r.data),
+
   create: (body: { name: string; category_id: string; variants: unknown[] }) =>
     api.post<Product>('/products', body).then(r => r.data),
+
   update: (id: string, body: { name?: string; category_id?: string }) =>
     api.patch<Product>(`/products/${id}`, body).then(r => r.data),
+
   updatePrice: (variantId: string, price: number) =>
     api.patch<Variant>(`/products/variants/${variantId}/price`, { price }).then(r => r.data),
+
   updateStock: (variantId: string, body: { quantity: number; base_price?: number; reason?: string; note?: string }) =>
     api.patch<Variant>(`/products/variants/${variantId}/stock`, body).then(r => r.data),
+
+  // NEW: update variant metadata — name and/or has_open_price
+  // Does NOT touch price (keeps audit log) or stock (keeps FIFO batches)
+  updateVariantMeta: (variantId: string, body: { name?: string | null; has_open_price?: boolean }) =>
+    api.patch<Variant>(`/products/variants/${variantId}`, body).then(r => r.data),
+
   delete: (id: string) => api.delete(`/products/${id}`),
-  bulkExport: () => api.get<{ data: BulkProductRow[] }>('/products/bulk/export').then(r => r.data),
+
+  bulkExport: () =>
+    api.get<{ data: BulkProductRow[] }>('/products/bulk/export').then(r => r.data),
+
   bulkApply: (rows: BulkProductRow[]) =>
-    api.post<{ success: boolean; processed: number; created: number; updated: number }>('/products/bulk/apply', rows).then(r => r.data),
+    api.post<{ success: boolean; processed: number; created: number; updated: number }>(
+      '/products/bulk/apply', rows
+    ).then(r => r.data),
 };
 
 // ─── Categories ──────────────────────────────────────────────────────────────
@@ -104,7 +118,8 @@ export const transactionsApi = {
     api.post<CreateTransactionResponse>('/transactions', body).then(r => r.data),
   list: (params?: { page?: number; limit?: number; from?: string; to?: string }) =>
     api.get<Paginated<Transaction>>('/transactions', { params }).then(r => r.data),
-  get: (id: string) => api.get<Transaction>(`/transactions/${id}`).then(r => r.data),
+  get: (id: string) =>
+    api.get<Transaction>(`/transactions/${id}`).then(r => r.data),
 };
 
 // ─── Members ─────────────────────────────────────────────────────────────────
@@ -112,7 +127,8 @@ export const transactionsApi = {
 export const membersApi = {
   list: (params?: { q?: string; page?: number; limit?: number }) =>
     api.get<Paginated<Member>>('/members', { params }).then(r => r.data),
-  byPhone: (phone: string) => api.get<Member>(`/members/${phone}`).then(r => r.data),
+  byPhone: (phone: string) =>
+    api.get<Member>(`/members/${phone}`).then(r => r.data),
   create: (body: { name: string; phone: string }) =>
     api.post<Member>('/members', body).then(r => r.data),
   update: (id: string, body: { name?: string; phone?: string }) =>
@@ -123,7 +139,8 @@ export const membersApi = {
 
 export const vouchersApi = {
   list: () => api.get<Voucher[]>('/vouchers').then(r => r.data),
-  byCode: (code: string) => api.get<Voucher>(`/vouchers/${code}`).then(r => r.data),
+  byCode: (code: string) =>
+    api.get<Voucher>(`/vouchers/${code}`).then(r => r.data),
   create: (body: { code: string; type: string; value: number; max_uses?: number; exp_days?: number }) =>
     api.post<Voucher>('/vouchers', body).then(r => r.data),
 };
@@ -136,18 +153,20 @@ export const reportsApi = {
   monthly: (params: { year: number; month: number }) =>
     api.get<MonthlyReport>('/reports/monthly', { params }).then(r => r.data),
   lowStock: (threshold = 10) =>
-    api.get<LowStockItem[]>('/reports/low-stock', { params: { threshold } }).then(r => r.data),
+    api.get<LowStockResponse>('/reports/low-stock', { params: { threshold } }).then(r => r.data),
   priceLogs: (params?: { from?: string; to?: string; page?: number; limit?: number }) =>
     api.get('/reports/price-logs', { params }).then(r => r.data),
   eStatement: (params: { from: string; to: string }) =>
-    api.get('/reports/e-statement', { params }).then(r => r.data),
+    api.get<EStatementReport>('/reports/e-statement', { params }).then(r => r.data),
 };
 
 // ─── Inventory ────────────────────────────────────────────────────────────────
 
 export const inventoryApi = {
-  stockHistory: (params?: { from?: string; to?: string; variant_id?: string; reason?: string; page?: number; limit?: number }) =>
-    api.get('/inventory/stock-history', { params }).then(r => r.data),
+  stockHistory: (params?: {
+    from?: string; to?: string; variant_id?: string;
+    reason?: string; page?: number; limit?: number;
+  }) => api.get('/inventory/stock-history', { params }).then(r => r.data),
 };
 
 // ─── Users ───────────────────────────────────────────────────────────────────
