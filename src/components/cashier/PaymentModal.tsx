@@ -10,6 +10,8 @@ import toast from 'react-hot-toast';
 
 interface PaymentModalProps {
   total: number;
+  taxAmount?: number;
+  serviceChargeAmount?: number;
   onClose: () => void;
 }
 
@@ -20,7 +22,7 @@ interface PaymentSplit {
   amount: number;
 }
 
-export default function PaymentModal({ total, onClose }: PaymentModalProps) {
+export default function PaymentModal({ total, taxAmount = 0, serviceChargeAmount = 0, onClose }: PaymentModalProps) {
   const [finalTotal] = useState(total);
 
   const [payments, setPayments] = useState<PaymentSplit[]>([]);
@@ -106,9 +108,6 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
       toast.success('Transaksi berhasil!');
       clearCart();
 
-      // ── Invalidate caches so stock counts + transaction list refresh instantly ──
-      // Without this the cashier would see stale stock numbers until the next
-      // automatic refetch cycle (30 s).
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['reports-summary'] });
@@ -122,8 +121,6 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
       if (isNetworkError) {
         const localId = await saveOfflineTransaction(payload);
 
-        // ── Push into the in-memory store so Reports/UI updates immediately ──────
-        // No page refresh needed — the offline summary in ReportsPage reads this store.
         addTransaction({
           id: localId,
           created_at: Date.now(),
@@ -164,6 +161,18 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
               <span>Grand Total:</span>
               <span>Rp {finalTotal.toLocaleString('id-ID')}</span>
             </div>
+
+            {taxAmount > 0 && (
+              <div className={styles.receiptRowSplit} style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>
+                <span>(incl. Tax: Rp {taxAmount.toLocaleString('id-ID')})</span>
+              </div>
+            )}
+            {serviceChargeAmount > 0 && (
+              <div className={styles.receiptRowSplit} style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>
+                <span>(incl. Service: Rp {serviceChargeAmount.toLocaleString('id-ID')})</span>
+              </div>
+            )}
+
             <div className={styles.receiptDivider}></div>
             {payments.map((p, i) => (
               <div key={i} className={styles.receiptRowSplit}>
@@ -223,6 +232,17 @@ export default function PaymentModal({ total, onClose }: PaymentModalProps) {
           <div className={styles.totalDisplay}>
             <span className={styles.totalLabel}>Total Due</span>
             <span className={styles.totalAmount}>Rp {finalTotal.toLocaleString('id-ID')}</span>
+            {(taxAmount > 0 || serviceChargeAmount > 0) && (
+              <span style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.25rem',
+              }}>
+                {taxAmount > 0 && `Tax: Rp ${taxAmount.toLocaleString('id-ID')}`}
+                {taxAmount > 0 && serviceChargeAmount > 0 && ' · '}
+                {serviceChargeAmount > 0 && `Service: Rp ${serviceChargeAmount.toLocaleString('id-ID')}`}
+              </span>
+            )}
           </div>
 
           {payments.length > 0 && (

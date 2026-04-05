@@ -2,9 +2,11 @@ import { useCartStore } from '../../store/cartStore';
 import { Trash2, Plus, Minus, CreditCard, XCircle, Tag, User } from 'lucide-react';
 import styles from './CartBox.module.css';
 import { useState, useEffect } from 'react';
-import { membersApi, vouchersApi } from '../../lib/api';
+import { membersApi, vouchersApi, settingsApi } from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
 import PaymentModal from './PaymentModal';
 import toast from 'react-hot-toast';
+import type { TaxConfig } from '../../types';
 
 export default function CartBox() {
   const {
@@ -19,11 +21,21 @@ export default function CartBox() {
   const [memberInput, setMemberInput] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // Fetch tax config from settings
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.get(),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const taxConfig: TaxConfig = settingsData?.tax_config ?? {
+    tax_status: 'FREE', pph_rate: 0.5, ppn_rate: 11, pb1_rate: 10,
+    service_charge_rate: 5, apply_ppn_to_sales: false, apply_pb1_to_sales: false,
+  };
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
+    const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -58,15 +70,10 @@ export default function CartBox() {
 
   const handleApplyMember = async () => {
     if (!memberInput) return;
-
-    // FIX: Don't set a fake offline member UUID.
-    // Sending id '00000000-0000-...' to the server causes 400 "Member not found".
-    // When offline, member lookup is simply not available.
     if (!isOnline) {
       toast.error('Member lookup tidak tersedia saat offline');
       return;
     }
-
     try {
       const member = await membersApi.byPhone(memberInput.trim());
       setMember({ id: member.id, phone: member.phone, name: member.name });
@@ -79,11 +86,26 @@ export default function CartBox() {
 
   const subtotal = getSubtotal();
   const voucherDiscount = getVoucherDiscount();
-  const grandTotal = getGrandTotal();
+  const afterDiscount = getGrandTotal();
 
-  const pkpEnabled = false;
-  const tax = pkpEnabled ? grandTotal * 0.11 : 0;
-  const finalTotalToPay = grandTotal + tax;
+  // Consumer tax calculations — match backend logic exactly
+  let taxAmount = 0;
+  let serviceChargeAmount = 0;
+
+  if (taxConfig.apply_ppn_to_sales) {
+    taxAmount += afterDiscount * (taxConfig.ppn_rate / 100);
+  }
+  if (taxConfig.apply_pb1_to_sales) {
+    taxAmount += afterDiscount * (taxConfig.pb1_rate / 100);
+  }
+  if (taxConfig.apply_pb1_to_sales && taxConfig.service_charge_rate > 0) {
+    serviceChargeAmount = afterDiscount * (taxConfig.service_charge_rate / 100);
+  }
+
+  taxAmount = Math.round(taxAmount);
+  serviceChargeAmount = Math.round(serviceChargeAmount);
+
+  const finalTotalToPay = afterDiscount + taxAmount + serviceChargeAmount;
 
   return (
     <div className={styles.container}>
@@ -195,11 +217,7 @@ export default function CartBox() {
                   onKeyDown={(e) => e.key === 'Enter' && isOnline && handleApplyVoucher()}
                   disabled={!isOnline}
                 />
-                <button
-                  className={styles.applyBtn}
-                  onClick={handleApplyVoucher}
-                  disabled={!isOnline}
-                >
+                <button className={styles.applyBtn} onClick={handleApplyVoucher} disabled={!isOnline}>
                   Apply
                 </button>
               </>
@@ -223,10 +241,25 @@ export default function CartBox() {
           </div>
         )}
 
-        {pkpEnabled && (
+        {taxAmount > 0 && (
           <div className={styles.summaryRow}>
-            <span>PPN (11%)</span>
-            <span>Rp {tax.toLocaleString('id-ID')}</span>
+            <span>
+              Pajak
+              {taxConfig.apply_ppn_to_sales && taxConfig.apply_pb1_to_sales
+                ? ` (PPN ${taxConfig.ppn_rate}% + PB1 ${taxConfig.pb1_rate}%)`
+                : taxConfig.apply_ppn_to_sales
+                  ? ` (PPN ${taxConfig.ppn_rate}%)`
+                  : ` (PB1 ${taxConfig.pb1_rate}%)`
+              }
+            </span>
+            <span>Rp {taxAmount.toLocaleString('id-ID')}</span>
+          </div>
+        )}
+
+        {serviceChargeAmount > 0 && (
+          <div className={styles.summaryRow}>
+            <span>Service Charge ({taxConfig.service_charge_rate}%)</span>
+            <span>Rp {serviceChargeAmount.toLocaleString('id-ID')}</span>
           </div>
         )}
 
@@ -258,6 +291,8 @@ export default function CartBox() {
       {isPaymentModalOpen && (
         <PaymentModal
           total={finalTotalToPay}
+          taxAmount={taxAmount}
+          serviceChargeAmount={serviceChargeAmount}
           onClose={() => setIsPaymentModalOpen(false)}
         />
       )}

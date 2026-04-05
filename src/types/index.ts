@@ -5,6 +5,8 @@ export type PaymentMethod = 'CASH' | 'QRIS' | 'TRANSFER';
 export type MemberTier = 'BASIC' | 'SILVER' | 'GOLD';
 export type VoucherType = 'PERCENTAGE' | 'FIXED';
 export type StockReason = 'SALE' | 'RESTOCK' | 'ADJUSTMENT' | 'DAMAGE' | 'RETURN';
+export type OrderStatus = 'OPEN' | 'PAID' | 'VOIDED' | 'QUOTATION' | 'INVOICE';
+export type TaxStatus = 'FREE' | 'PPH_FINAL' | 'PKP';
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -32,9 +34,14 @@ export interface StoreInfo {
 }
 
 export interface TaxConfig {
-  is_pkp: boolean;
-  npwp: string | null;
+  tax_status: TaxStatus;
+  pph_rate: number;
   ppn_rate: number;
+  pb1_rate: number;
+  service_charge_rate: number;
+  apply_ppn_to_sales: boolean;
+  apply_pb1_to_sales: boolean;
+  npwp?: string | null;
 }
 
 export interface PrinterConfig {
@@ -124,6 +131,9 @@ export interface CreateTransactionPayload {
   payments: PaymentInput[];
   member_id?: string;
   voucher_code?: string;
+  status?: OrderStatus;
+  table_id?: string;
+  shift_id?: string;
   created_at?: string; // ISO8601, for offline backdating
 }
 
@@ -148,8 +158,13 @@ export interface Transaction {
   user_id: string;
   member_id: string | null;
   voucher_id: string | null;
+  shift_id: string | null;
+  status: OrderStatus;
+  table_id: string | null;
   subtotal: string;
   discount_total: string;
+  tax_amount: string;
+  service_charge_amount: string;
   total: string;
   created_at: string;
   user: { name: string; role?: Role };
@@ -196,6 +211,8 @@ export interface ReportSummary {
     revenue: number;
     subtotal: number;
     discount_total: number;
+    tax_collected: number;
+    service_charge_collected: number;
     transaction_count: number;
     cogs_total: number;
     gross_profit: number;
@@ -208,25 +225,41 @@ export interface ReportSummary {
 export interface MonthlyReport {
   period: { year: number; month: number; from: string; to: string };
   store: StoreInfo;
-  tax: { is_pkp: boolean; npwp?: string | null; ppn_rate: number; ppn_amount: number };
-  summary: { revenue: number; subtotal: number; discount_total: number; transaction_count: number; dpp: number; cogs_total: number; gross_profit: number };
+  tax: {
+    config: TaxConfig;
+    ytd_revenue: number;
+    ytd_remaining_exemption: number;
+    ytd_progress_pct: number;
+    monthly_tax_liability: number;
+    tax_explanation: string;
+    ppn_collected: number;
+  };
+  summary: {
+    revenue: number;
+    subtotal: number;
+    discount_total: number;
+    tax_collected: number;
+    service_charge_collected: number;
+    transaction_count: number;
+    cogs_total: number;
+    gross_profit: number;
+    expenses_total: number;
+    net_profit: number;
+  };
   daily_breakdown: Array<{ day: string; revenue: number; count: number }>;
   payment_breakdown: Array<{ method: string; _sum: { amount: string }; _count: { id: number } }>;
 }
 
 // ─── Low Stock ────────────────────────────────────────────────────────────────
-// FIX: These types now match the actual backend response from GET /api/reports/low-stock
-// Backend returns: { alert_threshold, total_alerts, items: LowStockItem[] }
-// NOT a bare array of LowStockItem
 
 export interface LowStockItem {
-  variant_id: string;      // was: id (wrong field name)
-  product_name: string;    // was: product.name (wrong nesting)
-  category: string;        // was: missing
+  variant_id: string;
+  product_name: string;
+  category: string;
   sku: string;
-  variant_name: string | null;  // was: name
-  current_stock: number;   // was: stock (wrong field name)
-  price: string;           // Prisma Decimal comes as string
+  variant_name: string | null;
+  current_stock: number;
+  price: string;
 }
 
 export interface LowStockResponse {
@@ -237,7 +270,7 @@ export interface LowStockResponse {
 
 export interface EStatementEntry {
   date: string;
-  type: 'SALE' | 'RESTOCK';
+  type: 'SALE' | 'RESTOCK' | 'EXPENSE';
   ref_id: string;
   description: string;
   debit: number;
@@ -253,8 +286,60 @@ export interface EStatementReport {
     total_cogs: number;
     gross_profit: number;
     total_purchases_spent: number;
+    total_expenses: number;
+    total_tax_collected: number;
+    net_income: number;
     current_inventory_valuation: number;
   };
+}
+
+// ─── Shifts ──────────────────────────────────────────────────────────────────
+
+export interface CashShift {
+  id: string;
+  user_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  starting_cash: string;
+  expected_cash: string;
+  actual_cash: string;
+  difference: string;
+  status: 'OPEN' | 'CLOSED';
+  user?: { name: string; role?: string };
+  _count?: { transactions: number };
+}
+
+export interface ShiftCloseResult extends CashShift {
+  cash_from_sales: number;
+  reconciliation: {
+    starting_cash: number;
+    cash_from_sales: number;
+    expected_cash: number;
+    actual_cash: number;
+    difference: number;
+    status: 'BALANCED' | 'OVERAGE' | 'SHORTAGE';
+  };
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+export interface Expense {
+  id: string;
+  store_id: string;
+  user_id: string;
+  amount: string;
+  category: string;
+  description: string | null;
+  receipt_url: string | null;
+  created_at: string;
+  user?: { name: string };
+}
+
+export interface ExpenseSummary {
+  period: { from: string; to: string };
+  total: number;
+  count: number;
+  by_category: Array<{ category: string; total: number; count: number }>;
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────

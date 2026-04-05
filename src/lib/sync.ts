@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { getDB, getAllPendingTransactions, removePendingTransaction } from './db';
+import { getDB, removePendingTransaction } from './db';
 import { apiFetch } from './api';
 
 /**

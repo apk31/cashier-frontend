@@ -82,7 +82,6 @@ export default function ReportsPage() {
   const displayRevenue = onlineRevenue + (isOffline ? offlineSummary.revenue : 0);
   const displayTxCount = onlineTxCount + (isOffline ? offlineSummary.transaction_count : 0);
 
-  const summary = summaryData?.summary;
   const topItems = summaryData?.top_items || [];
   const lowStockItems = lowStockData?.items ?? [];
 

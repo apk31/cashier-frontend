@@ -109,7 +109,7 @@ const S = {
     marginTop: '0.5rem',
   } as React.CSSProperties),
   // Small progress indicator below pin display
-  pinProgress: (filled: number) => ({
+  pinProgress: (_filled: number) => ({
     display: 'flex',
     justifyContent: 'center',
     gap: '6px',

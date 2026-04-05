@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, Download, Landmark, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Calendar, Download, Landmark, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
 import { reportsApi } from '../../lib/api';
-import styles from './EStatementTab.module.css'; // Will create or reuse styles
+import styles from './EStatementTab.module.css';
 
 export default function EStatementTab() {
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
-    d.setDate(1); // First day of current month
+    d.setDate(1);
     return d.toISOString().split('T')[0];
   });
   const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -27,7 +27,7 @@ export default function EStatementTab() {
   const handleExportCSV = () => {
     if (!ledger || ledger.length === 0) return;
 
-    const headers = ['Date', 'Type', 'Reference ID', 'Description', 'Revenue (In)', 'COGS / Purchase Cost (Out)', 'Gross Profit'];
+    const headers = ['Date', 'Type', 'Reference ID', 'Description', 'Revenue (In)', 'COGS / Expense (Out)', 'Gross Profit'];
 
     const rows = ledger.map((entry: any) => [
       new Date(entry.date).toLocaleString('id-ID'),
@@ -49,6 +49,12 @@ export default function EStatementTab() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const typeColors: Record<string, string> = {
+    SALE: 'var(--color-success-bg)',
+    RESTOCK: 'var(--color-warning-bg)',
+    EXPENSE: 'var(--color-danger-bg)',
   };
 
   return (
@@ -101,8 +107,31 @@ export default function EStatementTab() {
           </h3>
         </div>
         <div className={styles.summaryCard}>
-          <p>Inventory Valuation (Global)</p>
+          <p>Expenses</p>
+          <h3 style={{ color: 'var(--color-danger)' }}>
+            -Rp {Number(summary?.total_expenses || 0).toLocaleString('id-ID')}
+          </h3>
+        </div>
+        <div className={styles.summaryCard}>
+          <p>Tax Collected</p>
           <h3 style={{ color: 'var(--color-warning)' }}>
+            Rp {Number(summary?.total_tax_collected || 0).toLocaleString('id-ID')}
+          </h3>
+        </div>
+        <div className={styles.summaryCard} style={{ backgroundColor: 'rgba(120,200,120,0.05)' }}>
+          <p style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <Wallet size={14} /> Net Income
+          </p>
+          <h3 style={{ color: Number(summary?.net_income || 0) >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+            Rp {Number(summary?.net_income || 0).toLocaleString('id-ID')}
+          </h3>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
+        <div className={styles.summaryCard} style={{ flex: 1, padding: '0.875rem 1.25rem' }}>
+          <p>Inventory Valuation (Global)</p>
+          <h3 style={{ color: 'var(--color-warning)', fontSize: '1.125rem' }}>
             Rp {Number(summary?.current_inventory_valuation || 0).toLocaleString('id-ID')}
           </h3>
         </div>
@@ -136,7 +165,7 @@ export default function EStatementTab() {
                       {new Date(entry.date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td>
-                      <span className={styles.txBadge} style={{ backgroundColor: entry.type === 'SALE' ? 'var(--color-success-bg)' : 'var(--color-warning-bg)' }}>
+                      <span className={styles.txBadge} style={{ backgroundColor: typeColors[entry.type] || 'var(--color-primary-light)' }}>
                         {entry.type}
                       </span>
                     </td>

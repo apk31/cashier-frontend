@@ -3,7 +3,8 @@ import type {
   LoginResponse, AuthUser, Settings, Product, Variant, BulkProductRow,
   Paginated, Transaction, CreateTransactionPayload, CreateTransactionResponse,
   Member, Voucher, ReportSummary, MonthlyReport, LowStockResponse, User,
-  Category, OfflineQueueItem, EStatementReport,
+  Category, OfflineQueueItem, EStatementReport, CashShift, ShiftCloseResult,
+  Expense, ExpenseSummary,
 } from '../types';
 
 // ─── Axios instance ───────────────────────────────────────────────────────────
@@ -86,8 +87,6 @@ export const productsApi = {
   updateStock: (variantId: string, body: { quantity: number; base_price?: number; reason?: string; note?: string }) =>
     api.patch<Variant>(`/products/variants/${variantId}/stock`, body).then(r => r.data),
 
-  // NEW: update variant metadata — name and/or has_open_price
-  // Does NOT touch price (keeps audit log) or stock (keeps FIFO batches)
   updateVariantMeta: (variantId: string, body: { name?: string | null; has_open_price?: boolean }) =>
     api.patch<Variant>(`/products/variants/${variantId}`, body).then(r => r.data),
 
@@ -116,7 +115,7 @@ export const categoriesApi = {
 export const transactionsApi = {
   create: (body: CreateTransactionPayload) =>
     api.post<CreateTransactionResponse>('/transactions', body).then(r => r.data),
-  list: (params?: { page?: number; limit?: number; from?: string; to?: string }) =>
+  list: (params?: { page?: number; limit?: number; from?: string; to?: string; status?: string }) =>
     api.get<Paginated<Transaction>>('/transactions', { params }).then(r => r.data),
   get: (id: string) =>
     api.get<Transaction>(`/transactions/${id}`).then(r => r.data),
@@ -188,4 +187,29 @@ export const offlineApi = {
   queue: () => api.get<OfflineQueueItem[]>('/offline/queue').then(r => r.data),
   retry: (id: string) => api.post(`/offline/queue/${id}/retry`).then(r => r.data),
   discard: (id: string) => api.delete(`/offline/queue/${id}`),
+};
+
+// ─── Shifts ──────────────────────────────────────────────────────────────────
+
+export const shiftsApi = {
+  open: (body: { starting_cash: number }) =>
+    api.post<CashShift>('/shifts/open', body).then(r => r.data),
+  close: (id: string, body: { actual_cash: number }) =>
+    api.post<ShiftCloseResult>(`/shifts/${id}/close`, body).then(r => r.data),
+  current: () =>
+    api.get<{ shift: CashShift | null }>('/shifts/current').then(r => r.data),
+  list: (params?: { from?: string; to?: string; status?: string; page?: number; limit?: number }) =>
+    api.get<Paginated<CashShift>>('/shifts', { params }).then(r => r.data),
+};
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+export const expensesApi = {
+  create: (body: { amount: number; category: string; description?: string; receipt_url?: string }) =>
+    api.post<Expense>('/expenses', body).then(r => r.data),
+  list: (params?: { from?: string; to?: string; category?: string; page?: number; limit?: number }) =>
+    api.get<Paginated<Expense>>('/expenses', { params }).then(r => r.data),
+  summary: (params?: { from?: string; to?: string }) =>
+    api.get<ExpenseSummary>('/expenses/summary', { params }).then(r => r.data),
+  delete: (id: string) => api.delete(`/expenses/${id}`),
 };
