@@ -116,6 +116,19 @@
   overflow-x: auto;
 }
 
+@media print {
+  .tableWrapper {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+  .ledgerSection {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

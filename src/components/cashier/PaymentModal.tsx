@@ -12,6 +12,7 @@ interface PaymentModalProps {
   total: number;
   taxAmount?: number;
   serviceChargeAmount?: number;
+  shiftId?: string;
   onClose: () => void;
 }
 
@@ -22,7 +23,7 @@ interface PaymentSplit {
   amount: number;
 }
 
-export default function PaymentModal({ total, taxAmount = 0, serviceChargeAmount = 0, onClose }: PaymentModalProps) {
+export default function PaymentModal({ total, taxAmount = 0, serviceChargeAmount = 0, shiftId, onClose }: PaymentModalProps) {
   const [finalTotal] = useState(total);
 
   const [payments, setPayments] = useState<PaymentSplit[]>([]);
@@ -94,6 +95,7 @@ export default function PaymentModal({ total, taxAmount = 0, serviceChargeAmount
       payments: finalPayments.map(p => ({ method: p.method, amount: p.amount })),
       ...(isRealMember ? { member_id: memberInfo!.id } : {}),
       ...(voucher ? { voucher_code: voucher.code } : {}),
+      ...(shiftId ? { shift_id: shiftId } : {}),
       created_at: new Date().toISOString(),
     };
 

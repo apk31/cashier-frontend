@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, Calendar, Download, CloudOff } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, Download, CloudOff, Receipt } from 'lucide-react';
 import styles from './ReportsPage.module.css';
 import { useI18nStore } from '../store/i18nStore';
 import TaxReportTab from '../components/reports/TaxReportTab';
 import EStatementTab from '../components/reports/EStatementTab';
+import CashierLogsTab from '../components/reports/CashierLogsTab';
+import GlobalTransactionsTab from '../components/reports/GlobalTransactionsTab';
 import { reportsApi } from '../lib/api';
 import { useOfflineTransactionStore } from '../store/offlineTransactionStore';
 
-type Tab = 'summary' | 'tax' | 'estatement';
+type Tab = 'summary' | 'tax' | 'estatement' | 'cashier_logs' | 'global';
 
 // Helper: returns YYYY-MM-DD in local time (avoids UTC shift from .split('T')[0])
 function toLocalDateStr(d: Date): string {
@@ -94,7 +96,7 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <div className={styles.tabContainer}>
+      <div className={`${styles.tabContainer} print-hide`}>
         <button
           className={`${styles.tabBtn} ${activeTab === 'summary' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('summary')}
@@ -115,6 +117,20 @@ export default function ReportsPage() {
         >
           <BarChart3 size={18} />
           E-Statement Ledger
+        </button>
+        <button
+          className={`${styles.tabBtn} ${activeTab === 'cashier_logs' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('cashier_logs')}
+        >
+          <Calendar size={18} />
+          Cashier Logs
+        </button>
+        <button
+          className={`${styles.tabBtn} ${activeTab === 'global' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('global')}
+        >
+          <Receipt size={18} />
+          Global Transactions
         </button>
       </div>
 
@@ -315,6 +331,8 @@ export default function ReportsPage() {
 
       {activeTab === 'tax' && <TaxReportTab />}
       {activeTab === 'estatement' && <EStatementTab />}
+      {activeTab === 'cashier_logs' && <CashierLogsTab />}
+      {activeTab === 'global' && <GlobalTransactionsTab />}
     </div>
   );
 }

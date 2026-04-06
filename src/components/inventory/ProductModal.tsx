@@ -49,6 +49,7 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
   const [price, setPrice] = useState(targetVariant ? parseFloat(targetVariant.price) : 0);
   const [basePrice, setBasePrice] = useState(0);
   const [stock, setStock] = useState(targetVariant?.stock ?? 0);
+  const [stockNote, setStockNote] = useState('');
   const [hasOpenPrice, setHasOpenPrice] = useState(targetVariant?.has_open_price || false);
 
   // ── Save mutation ────────────────────────────────────────────────────────────
@@ -60,9 +61,9 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
           name,
           category_id: categoryId,
           variants: [{
-            name: variantName || null,
+            name: variantName || undefined,
             sku,
-            barcode: barcode || null,
+            barcode: barcode || undefined,
             price,
             stock,
             base_price: basePrice,
@@ -92,6 +93,7 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
             quantity: diff,
             base_price: diff > 0 ? basePrice : 0,
             reason: 'ADJUSTMENT',
+            note: stockNote,
           }));
         }
 
@@ -122,10 +124,10 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
   });
 
   // ── Derived UI helpers ───────────────────────────────────────────────────────
-  // Show base price when: creating fresh, or adding new stock in edit mode
   const showBasePrice = !isEdit || (isEdit && stock > (targetVariant?.stock ?? 0));
 
-  const isSaveDisabled = saveMutation.isPending || !name.trim() || (!isEdit && !sku.trim());
+  const stockChanged = isEdit && targetVariant && targetVariant.stock !== stock;
+  const isSaveDisabled = saveMutation.isPending || !name.trim() || (!isEdit && !sku.trim()) || (stockChanged && !stockNote.trim());
 
   return (
     <div className={styles.overlay}>
@@ -255,6 +257,21 @@ export default function ProductModal({ onClose, categories, productToEdit, varia
                 </span>
               )}
             </div>
+
+            {/* Note input if stock changed manually */}
+            {stockChanged && (
+              <div className={styles.formGroup}>
+                <label style={{ color: 'var(--color-danger)' }}>Audit Log Reason *</label>
+                <input
+                  type="text"
+                  value={stockNote}
+                  onChange={e => setStockNote(e.target.value)}
+                  className={styles.input}
+                  placeholder="Reason for changing stock manually (e.g. Broken item)"
+                  required
+                />
+              </div>
+            )}
 
             {/* Base cost — shown when adding new stock */}
             {showBasePrice && (

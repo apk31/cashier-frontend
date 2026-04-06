@@ -163,7 +163,12 @@ export default function LoginPage() {
       // Extract axios error message if available
       const axiosMsg = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
       toast.error(axiosMsg || msg);
-      if (tab === 'pin') setPin('');
+      
+      if (tab === 'pin') {
+        setPin('');
+      } else {
+        setPassword('');
+      }
     } finally {
       setLoading(false);
     }
@@ -190,7 +195,7 @@ export default function LoginPage() {
     }
   };
 
-  const numKeys = ['1','2','3','4','5','6','7','8','9','⌫','0','↵'];
+  const numKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', '↵'];
 
   // Render filled/empty dot indicators for PIN progress
   const renderPinDots = () => (
@@ -245,7 +250,7 @@ export default function LoginPage() {
             </div>
 
             {/* PIN dot progress — shows 6 slots to hint at correct length */}
-            {renderPinDots()}
+            {/* {renderPinDots()} */}
 
             <div style={S.pinDisplay}>
               {pin.length > 0

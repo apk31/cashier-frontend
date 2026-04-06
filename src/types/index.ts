@@ -248,6 +248,23 @@ export interface MonthlyReport {
   };
   daily_breakdown: Array<{ day: string; revenue: number; count: number }>;
   payment_breakdown: Array<{ method: string; _sum: { amount: string }; _count: { id: number } }>;
+  inventory_valuation: Array<{
+    sku: string;
+    product_name: string;
+    qty: number;
+    base_price: number;
+    valuation: number;
+  }>;
+  transaction_history: Array<{
+    date: string;
+    product_name: string;
+    type: 'B' | 'S';
+    qty: number;
+    price: number;
+    buy_value: number;
+    sell_value: number;
+    tax: number;
+  }>;
 }
 
 // ─── Low Stock ────────────────────────────────────────────────────────────────

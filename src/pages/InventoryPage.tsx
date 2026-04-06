@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Download, Edit2, Trash2, UploadCloud, AlertTriangle,Eye } from 'lucide-react';
+import { Search, Plus, Download, Edit2, Trash2, UploadCloud, AlertTriangle, Eye, Layers } from 'lucide-react';
 import styles from './InventoryPage.module.css';
 import { useI18nStore } from '../store/i18nStore';
 import BulkImportModal from '../components/inventory/BulkImportModal';
 import ProductModal from '../components/inventory/ProductModal';
 import ProductDetailModal from '../components/inventory/ProductDetailModal';
+import CategoryModal from '../components/inventory/CategoryModal';
 import { productsApi, categoriesApi } from '../lib/api';
 import toast from 'react-hot-toast';
 import type { Product } from '../types';
@@ -14,6 +15,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [productToView, setProductToView] = useState<Product | undefined>(undefined);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -40,6 +42,7 @@ export default function InventoryPage() {
     if (!isOnline) {
       setIsImportModalOpen(false);
       setIsProductModalOpen(false);
+      setIsCategoryModalOpen(false);
     }
   }, [isOnline]);
 
@@ -63,22 +66,47 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Produk dihapus');
     },
-    onError: () => toast.error('Gagal menghapus produk'),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || err.message || '';
+      if (msg === 'Cannot delete product with existing transaction history') {
+        toast.error('Gagal: Produk memiliki histori transaksi. Tidak bisa dihapus, hanya bisa "Zero Stock" untuk audit.');
+      } else {
+        toast.error(msg || 'Gagal menghapus produk');
+      }
+    },
   });
 
   // ── Export ──────────────────────────────────────────────────────────────
   const handleExport = async () => {
     try {
       const result = await productsApi.bulkExport();
-      const json = JSON.stringify(result.data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
+      if (!result.data || result.data.length === 0) {
+         toast.error('Tidak ada data produk');
+         return;
+      }
+      const items = result.data;
+      const headers = Object.keys(items[0]);
+      
+      const csvRows = [headers.join(',')];
+      
+      for (const row of items) {
+        const values = headers.map(header => {
+          const val = (row as any)[header];
+          const escaped = ('' + (val ?? '')).replace(/"/g, '""');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(','));
+      }
+      
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `products_export_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `products_export_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${result.data.length} products`);
+      toast.success(`Exported ${result.data.length} produk`);
     } catch {
       toast.error('Gagal mengekspor produk');
     }
@@ -113,6 +141,13 @@ export default function InventoryPage() {
         />
       )}
 
+      {isCategoryModalOpen && (
+        <CategoryModal
+          onClose={() => setIsCategoryModalOpen(false)}
+          categories={categories}
+        />
+      )}
+
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>
@@ -126,6 +161,14 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className={styles.actions}>
+          <button
+            className={styles.secondaryBtn}
+            disabled={!isOnline}
+            onClick={() => setIsCategoryModalOpen(true)}
+          >
+            <Layers size={18} />
+            Categories
+          </button>
           <button
             className={styles.secondaryBtn}
             disabled={!isOnline}

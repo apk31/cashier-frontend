@@ -24,31 +24,10 @@ export default function EStatementTab() {
   });
 
   const { ledger = [], summary } = data || {};
-  const handleExportCSV = () => {
-    if (!ledger || ledger.length === 0) return;
-
-    const headers = ['Date', 'Type', 'Reference ID', 'Description', 'Revenue (In)', 'COGS / Expense (Out)', 'Gross Profit'];
-
-    const rows = ledger.map((entry: any) => [
-      new Date(entry.date).toLocaleString('id-ID'),
-      entry.type,
-      entry.ref_id,
-      `"${entry.description}"`,
-      entry.debit,
-      entry.credit,
-      entry.profit !== null ? entry.profit : ''
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((e: any[]) => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `E-Statement_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportPDF = () => {
+    // The browser's native print API allows exporting properly styled PDF ledgers.
+    // Make sure 'Save as PDF' is selected in the print dialog.
+    window.print();
   };
 
   const typeColors: Record<string, string> = {
@@ -59,7 +38,7 @@ export default function EStatementTab() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.filterBar}>
+      <div className={`${styles.filterBar} print-hide`}>
         <div className={styles.datePickerGroup}>
           <div className={styles.dateInputWrapper}>
             <Calendar size={16} className={styles.dateIcon} />
@@ -81,9 +60,9 @@ export default function EStatementTab() {
             />
           </div>
         </div>
-        <button className={styles.exportBtn} onClick={handleExportCSV}>
+        <button className={`${styles.exportBtn} print-hide`} onClick={handleExportPDF}>
           <Download size={16} />
-          Export Ledger
+          Export to PDF (Print)
         </button>
       </div>
 
@@ -139,7 +118,7 @@ export default function EStatementTab() {
 
       <div className={styles.ledgerSection}>
         <h3 className={styles.tableTitle}>
-          <Landmark size={20} /> Bank-style Ledger History
+          <Landmark size={20} /> Bank-style Ledger History ({fromDate} to {toDate})
         </h3>
         <div className={styles.tableWrapper}>
           <table className={styles.table}>

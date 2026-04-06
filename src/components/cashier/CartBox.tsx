@@ -8,7 +8,12 @@ import PaymentModal from './PaymentModal';
 import toast from 'react-hot-toast';
 import type { TaxConfig } from '../../types';
 
-export default function CartBox() {
+interface CartBoxProps {
+  shiftId?: string;
+  isBypassed?: boolean;
+}
+
+export default function CartBox({ shiftId, isBypassed }: CartBoxProps) {
   const {
     items, removeItem, updateQuantity, clearCart,
     getSubtotal, getGrandTotal, getVoucherDiscount,
@@ -280,10 +285,10 @@ export default function CartBox() {
           <button
             className={styles.payBtn}
             onClick={() => setIsPaymentModalOpen(true)}
-            disabled={items.length === 0}
+            disabled={items.length === 0 || isBypassed}
           >
             <CreditCard size={18} />
-            Charge Rp {finalTotalToPay.toLocaleString('id-ID')}
+            {isBypassed ? 'Audit Mode (Locked)' : `Charge Rp ${finalTotalToPay.toLocaleString('id-ID')}`}
           </button>
         </div>
       </div>
@@ -293,6 +298,7 @@ export default function CartBox() {
           total={finalTotalToPay}
           taxAmount={taxAmount}
           serviceChargeAmount={serviceChargeAmount}
+          shiftId={shiftId}
           onClose={() => setIsPaymentModalOpen(false)}
         />
       )}

@@ -210,3 +210,11 @@
   padding: 1.5rem;
   background-color: var(--bg-app);
 }
+
+@media print {
+  .layout, .main, .content {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+}

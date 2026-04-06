@@ -44,6 +44,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireRole({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) {
+  const { user } = useAuthStore();
+  if (!user || !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
 // ─── App Content (inside QueryClientProvider so useQueryClient works) ─────────
 
 function AppContent() {
@@ -78,9 +86,21 @@ function AppContent() {
       {/* Protected — all wrapped in AppLayout */}
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<CashierPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="inventory" element={
+          <RequireRole allowedRoles={['ADMIN', 'MANAGER']}>
+            <InventoryPage />
+          </RequireRole>
+        } />
+        <Route path="reports" element={
+          <RequireRole allowedRoles={['ADMIN', 'MANAGER']}>
+            <ReportsPage />
+          </RequireRole>
+        } />
+        <Route path="settings" element={
+          <RequireRole allowedRoles={['ADMIN', 'MANAGER']}>
+            <SettingsPage />
+          </RequireRole>
+        } />
       </Route>
 
       {/* Catch all */}

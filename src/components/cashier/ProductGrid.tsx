@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import styles from './ProductGrid.module.css';
 import { useCartStore } from '../../store/cartStore';
 import { productsApi, categoriesApi } from '../../lib/api';
+import toast from 'react-hot-toast';
+import { Camera } from 'lucide-react';
+import BarcodeScannerModal from './BarcodeScannerModal';
 import type { Product, Variant, Category } from '../../types';
 
 export default function ProductGrid() {
@@ -10,6 +13,7 @@ export default function ProductGrid() {
   const [searchQuery, setSearchQuery] = useState('');
   const [openPriceItem, setOpenPriceItem] = useState<{ product: Product; variant: Variant } | null>(null);
   const [customPriceInput, setCustomPriceInput] = useState('');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef('');
   const addItem = useCartStore((state) => state.addItem);
@@ -30,15 +34,26 @@ export default function ProductGrid() {
   // ── Products ──────────────────────────────────────────────────────────────
 
   const { data: productData, isLoading } = useQuery({
-    queryKey: ['products', activeCategory, searchQuery],
+    queryKey: ['products'], // Fetch all to support offline cache
     queryFn: () => productsApi.list({
-      category_id: searchQuery ? undefined : (activeCategory || undefined),
-      q: searchQuery || undefined,
-      limit: 100,
+      limit: 500, // Load all products so POS works offline seamlessly
     }),
     staleTime: 1000 * 30, // 30s cache
   });
-  const products = productData?.data ?? [];
+  
+  const products = (productData?.data ?? []).filter(p => {
+    // Client-side search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return p.name.toLowerCase().includes(q) || 
+             p.variants.some(v => v.sku.toLowerCase().includes(q) || v.barcode?.toLowerCase().includes(q) || v.name?.toLowerCase().includes(q));
+    }
+    // Client-side category filter
+    if (activeCategory) {
+      return p.category_id === activeCategory;
+    }
+    return true;
+  });
 
   // ── Open price modal focus ────────────────────────────────────────────────
 
@@ -52,15 +67,29 @@ export default function ProductGrid() {
     if (!code.trim()) return;
     try {
       const variant = await productsApi.byBarcode(code.trim());
+      if (variant.stock <= 0) {
+        toast.error(`Out of stock: ${variant.product?.name || 'Item'}`);
+        return;
+      }
+      
+      if (variant.has_open_price) {
+        setOpenPriceItem({ product: variant.product, variant });
+        setCustomPriceInput('');
+        toast('Input Open Price', { icon: '✍' });
+        return;
+      }
+
       addItem({
         variant_id: variant.id,
-        name: `${variant.product.name}${variant.name ? ` (${variant.name})` : ''}`,
+        name: `${variant.product?.name || ''}${variant.name ? ` (${variant.name})` : ''}`,
         sku: variant.sku,
         price: parseFloat(variant.price),
         has_open_price: variant.has_open_price,
       });
+      toast.success(`Scanned: ${variant.product?.name || variant.sku}`);
+      setIsScannerOpen(false); // Close modal if open
     } catch {
-      // not found — could show toast
+      toast.error(`Barcode not found: ${code}`);
     }
   }, [addItem]);
 
@@ -119,13 +148,22 @@ export default function ProductGrid() {
     <div className={styles.container}>
       {/* Top Bar: Search & Categories */}
       <div className={styles.header}>
-        <input
-          type="text"
-          placeholder="Search product or scan barcode..."
-          className={styles.searchBar}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div style={{ display: 'flex', width: '100%', gap: '0.5rem' }}>
+          <input
+            type="text"
+            placeholder="Search product or scan USB barcode..."
+            className={styles.searchBar}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <button 
+            className={styles.cameraBtn} 
+            onClick={() => setIsScannerOpen(true)}
+            title="Scan Barcode with Camera"
+          >
+            <Camera size={20} />
+          </button>
+        </div>
         {!searchQuery && (
           <div className={styles.categoryTabs}>
             {categories.map(c => (
@@ -206,6 +244,14 @@ export default function ProductGrid() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {isScannerOpen && (
+        <BarcodeScannerModal 
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleBarcodeScan}
+        />
       )}
     </div>
   );

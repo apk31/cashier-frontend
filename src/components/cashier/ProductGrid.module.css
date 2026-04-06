@@ -27,6 +27,24 @@
   box-shadow: 0 0 0 4px var(--color-primary-light);
 }
 
+.cameraBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.cameraBtn:hover {
+  background-color: var(--color-primary-dark);
+}
+
 .categoryTabs {
   display: flex;
   gap: 0.75rem;

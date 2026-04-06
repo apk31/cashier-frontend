@@ -25,7 +25,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginReq = error.config?.url?.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginReq) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -115,7 +116,7 @@ export const categoriesApi = {
 export const transactionsApi = {
   create: (body: CreateTransactionPayload) =>
     api.post<CreateTransactionResponse>('/transactions', body).then(r => r.data),
-  list: (params?: { page?: number; limit?: number; from?: string; to?: string; status?: string }) =>
+  list: (params?: { page?: number; limit?: number; from?: string; to?: string; status?: string; shift_id?: string; }) =>
     api.get<Paginated<Transaction>>('/transactions', { params }).then(r => r.data),
   get: (id: string) =>
     api.get<Transaction>(`/transactions/${id}`).then(r => r.data),
@@ -149,7 +150,7 @@ export const vouchersApi = {
 export const reportsApi = {
   summary: (params: { from: string; to: string }) =>
     api.get<ReportSummary>('/reports/summary', { params }).then(r => r.data),
-  monthly: (params: { year: number; month: number }) =>
+  monthly: (params: { year: number; month?: number }) =>
     api.get<MonthlyReport>('/reports/monthly', { params }).then(r => r.data),
   lowStock: (threshold = 10) =>
     api.get<LowStockResponse>('/reports/low-stock', { params: { threshold } }).then(r => r.data),
